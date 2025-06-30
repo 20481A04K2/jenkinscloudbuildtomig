@@ -6,9 +6,9 @@ steps:
     args:
       - '-c'
       - |
-        VERSION_TAG="v-$(date +%Y%m%d-%H%M%S)"
-        echo "VERSION_TAG=$VERSION_TAG" > /workspace/version.env
-        echo "Generated version: $VERSION_TAG"
+        VERSION_TAG="v-$$(date +%Y%m%d-%H%M%S)"
+        echo "VERSION_TAG=$$VERSION_TAG" > /workspace/version.env
+        echo "Generated version: $$VERSION_TAG"
 
   # Step 1: Create Instance Template (Regional) with startup script
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -18,7 +18,7 @@ steps:
       - '-c'
       - |
         source /workspace/version.env
-        gcloud compute instance-templates create vamsi-template-$VERSION_TAG \
+        gcloud compute instance-templates create vamsi-template-$$VERSION_TAG \
           --machine-type=e2-medium \
           --region=asia-east1 \
           --image-family=debian-12 \
@@ -51,25 +51,25 @@ steps:
         PROJECT_ID="euphoric-world-464505-q1"
 
         echo "🔍 Checking if MIG exists..."
-        if ! gcloud compute instance-groups managed describe $MIG_NAME --zone=$ZONE --project=$PROJECT_ID > /dev/null 2>&1; then
+        if ! gcloud compute instance-groups managed describe $$MIG_NAME --zone=$$ZONE --project=$$PROJECT_ID > /dev/null 2>&1; then
           echo "🚀 Creating MIG..."
-          gcloud compute instance-groups managed create $MIG_NAME \
+          gcloud compute instance-groups managed create $$MIG_NAME \
             --base-instance-name=vamsi-instance \
-            --template=vamsi-template-$VERSION_TAG \
+            --template=vamsi-template-$$VERSION_TAG \
             --size=1 \
-            --zone=$ZONE \
-            --project=$PROJECT_ID
+            --zone=$$ZONE \
+            --project=$$PROJECT_ID
         else
           echo "♻️ Updating MIG with new template..."
-          gcloud compute instance-groups managed set-instance-template $MIG_NAME \
-            --template=vamsi-template-$VERSION_TAG \
-            --zone=$ZONE \
-            --project=$PROJECT_ID
+          gcloud compute instance-groups managed set-instance-template $$MIG_NAME \
+            --template=vamsi-template-$$VERSION_TAG \
+            --zone=$$ZONE \
+            --project=$$PROJECT_ID
 
           echo "🔄 Rolling restart to apply template..."
-          gcloud compute instance-groups managed rolling-action restart $MIG_NAME \
-            --zone=$ZONE \
-            --project=$PROJECT_ID
+          gcloud compute instance-groups managed rolling-action restart $$MIG_NAME \
+            --zone=$$ZONE \
+            --project=$$PROJECT_ID
         fi
 
 options:
