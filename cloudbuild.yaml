@@ -32,7 +32,7 @@ steps:
           chown -R sajja_vamsi:sajja_vamsi /home/sajja_vamsi/my-app
           cd /home/sajja_vamsi/my-app
           echo "Downloading ZIP..."
-          curl -L https://github.com/20481A04K2/githubtomig/archive/refs/heads/main.zip -o source.zip
+          curl -L https://github.com/20481A04K2/jenkinscloudbuildtomig.git -o source.zip
           echo "Unzipping..."
           unzip source.zip -d .
           cd githubtomig-main || exit
