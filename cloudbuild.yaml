@@ -6,9 +6,9 @@ steps:
     args:
       - '-c'
       - |
-        VERSION_TAG="v-$$(date +%Y%m%d-%H%M%S)"
-        echo "VERSION_TAG=$$VERSION_TAG" > /workspace/version.env
-        echo "Generated version: $$VERSION_TAG"
+        VERSION_TAG="v-$(date +%Y%m%d-%H%M%S)"
+        echo "VERSION_TAG=$VERSION_TAG" > /workspace/version.env
+        echo "Generated version: $VERSION_TAG"
 
   # Step 1: Create Instance Template (Regional) with startup script
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -18,7 +18,7 @@ steps:
       - '-c'
       - |
         source /workspace/version.env
-        gcloud compute instance-templates create vamsi-template-$$VERSION_TAG \
+        gcloud compute instance-templates create vamsi-template-$VERSION_TAG \
           --machine-type=e2-medium \
           --region=asia-east1 \
           --image-family=debian-12 \
@@ -27,21 +27,18 @@ steps:
           --metadata=startup-script='#!/bin/bash
           echo "Startup script started."
           apt-get update -y
-          apt-get install -y unzip curl python3-pip python3.11-venv
+          apt-get install -y git python3-pip python3.11-venv
           mkdir -p /home/sajja_vamsi/my-app
           chown -R sajja_vamsi:sajja_vamsi /home/sajja_vamsi/my-app
           cd /home/sajja_vamsi/my-app
-          echo "Downloading ZIP..."
-          curl -L https://github.com/20481A04K2/jenkinscloudbuildtomig.git -o source.zip
-          echo "Unzipping..."
-          unzip source.zip -d .
-          cd githubtomig-main || exit
+          echo "Cloning repo..."
+          git clone https://github.com/20481A04K2/jenkinscloudbuildtomig.git .
           python3 -m venv venv
           source venv/bin/activate
           pip install flask
           nohup python3 app.py --host=0.0.0.0 --port=8080 > /home/sajja_vamsi/app.log 2>&1 &'
 
-  # Step 2: Create or update MIG (Zonal)
+  # Step 2: Create or update MIG (Zonal) safely
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Create or Update MIG'
     entrypoint: 'bash'
@@ -49,21 +46,30 @@ steps:
       - '-c'
       - |
         source /workspace/version.env
-        if ! gcloud compute instance-groups managed describe vamsi-mig --zone=asia-east1-b > /dev/null 2>&1; then
-          echo "Creating MIG..."
-          gcloud compute instance-groups managed create vamsi-mig \
+        MIG_NAME="vamsi-mig"
+        ZONE="asia-east1-b"
+        PROJECT_ID="euphoric-world-464505-q1"
+
+        echo "🔍 Checking if MIG exists..."
+        if ! gcloud compute instance-groups managed describe $MIG_NAME --zone=$ZONE --project=$PROJECT_ID > /dev/null 2>&1; then
+          echo "🚀 Creating MIG..."
+          gcloud compute instance-groups managed create $MIG_NAME \
             --base-instance-name=vamsi-instance \
-            --template=vamsi-template-$$VERSION_TAG \
+            --template=vamsi-template-$VERSION_TAG \
             --size=1 \
-            --zone=asia-east1-b
+            --zone=$ZONE \
+            --project=$PROJECT_ID
         else
-          echo "Updating MIG with new template..."
-          gcloud compute instance-groups managed set-instance-template vamsi-mig \
-            --template=vamsi-template-$$VERSION_TAG \
-            --zone=asia-east1-b
-          echo "Rolling restart..."
-          gcloud compute instance-groups managed rolling-action restart vamsi-mig \
-            --zone=asia-east1-b
+          echo "♻️ Updating MIG with new template..."
+          gcloud compute instance-groups managed set-instance-template $MIG_NAME \
+            --template=vamsi-template-$VERSION_TAG \
+            --zone=$ZONE \
+            --project=$PROJECT_ID
+
+          echo "🔄 Rolling restart to apply template..."
+          gcloud compute instance-groups managed rolling-action restart $MIG_NAME \
+            --zone=$ZONE \
+            --project=$PROJECT_ID
         fi
 
 options:
