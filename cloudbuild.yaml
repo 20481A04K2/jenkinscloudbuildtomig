@@ -18,6 +18,7 @@ steps:
       - '-c'
       - |
         source /workspace/version.env
+
         gcloud compute instance-templates create vamsi-template-$$VERSION_TAG \
           --machine-type=e2-medium \
           --region=asia-east1 \
@@ -25,20 +26,33 @@ steps:
           --image-project=debian-cloud \
           --tags=http-server,https-server,allow-8080 \
           --metadata=startup-script='#!/bin/bash
-          echo "Startup script started."
+          echo "📦 Startup script started."
           apt-get update -y
-          apt-get install -y git python3-pip python3.11-venv
+          apt-get install -y git python3-pip python3.11-venv lsof
+
           mkdir -p /home/sajja_vamsi/my-app
-          chown -R sajja_vamsi:sajja_vamsi /home/sajja_vamsi/my-app
           cd /home/sajja_vamsi/my-app
-          echo "Cloning repo..."
-          git clone https://github.com/20481A04K2/jenkinscloudbuildtomig.git .
+
+          PORT_PID=$$(lsof -t -i:8080)
+          if [ -n "$$PORT_PID" ]; then
+            echo "🔪 Killing process on port 8080 (PID=$$PORT_PID)..."
+            kill -9 "$$PORT_PID"
+          fi
+
+          echo "🔁 Cloning repo..."
+          git clone https://github.com/20481A04K2/jenkinscloudbuildtomig.git . || echo "Repo exists."
+
+          echo "🐍 Creating venv..."
           python3 -m venv venv
           source venv/bin/activate
-          pip install flask
-          nohup python3 app.py --host=0.0.0.0 --port=8080 > /home/sajja_vamsi/app.log 2>&1 &'
 
-  # Step 2: Create or update MIG (Zonal) safely
+          echo "📦 Installing Flask..."
+          pip install flask
+
+          echo "🚀 Running Flask app..."
+          nohup python3 app.py --host=0.0.0.0 --port=8080 > flask.log 2>&1 &'
+
+  # Step 2: Create or update MIG (Zonal)
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'Create or Update MIG'
     entrypoint: 'bash'
@@ -66,7 +80,7 @@ steps:
             --zone=$$ZONE \
             --project=$$PROJECT_ID
 
-          echo "🔄 Rolling restart to apply template..."
+          echo "🔄 Rolling restart to apply new template..."
           gcloud compute instance-groups managed rolling-action restart $$MIG_NAME \
             --zone=$$ZONE \
             --project=$$PROJECT_ID
